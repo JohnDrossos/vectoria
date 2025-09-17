@@ -1,4 +1,3 @@
-# In vectoria/__init__.py
 
 """
 Vectoria: An adaptive vector quantization compressor.
