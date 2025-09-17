@@ -29,7 +29,7 @@ If you find Vectoria useful, please consider supporting its development. Every c
 You can install Vectoria directly from PyPI:
 
 ```bash
-pip install vectoria
+pip install vectoria-compressor
 ```
 
 -----
