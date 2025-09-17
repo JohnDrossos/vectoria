@@ -140,9 +140,6 @@ class VectorCompressor:
         idx_only_ranks = [r for r in modeled if r != ESC]
         rle_tokens, run_lengths = _rle0_over_ranks(idx_only_ranks, min_run=2)
 
-        # --- CORRECTED PART ---
-        # Build the frequency map directly instead of reconstructing the mixed stream.
-        # This avoids the StopIteration error.
         freqs = Counter(rle_tokens)
         esc_count = modeled.count(ESC)
         if esc_count > 0:
@@ -150,10 +147,8 @@ class VectorCompressor:
         
         lengths = _huffman_code_lengths(freqs)
 
-        # Token bits (calculated from the correct frequencies)
         token_bits = sum(count * lengths.get(sym, 0) for sym, count in freqs.items())
         
-        # --- REMAINDER OF THE FUNCTION IS UNCHANGED ---
         # Payload bits:
         #  - literals: raw V*3 bits per ESC
         #  - R0 runs: Rice-coded lengths with globally optimal k
@@ -166,9 +161,7 @@ class VectorCompressor:
             k_opt, rle_payload_bits, rle_header_bits = 0, 0, 1
 
         codebook_bits = K * (self.vector_size * 3)
-        # --- NEW, MORE REALISTIC CALCULATION ---
-        # Add a fixed 8 bits to store the size of the Huffman table, making
-        # the cost estimation fairer compared to the contextual model.
+
         huff_header_bits = (8 + len(lengths) * 8) if lengths else 0
         
         total_bits = (token_bits + literal_bits + rle_payload_bits +
@@ -187,10 +180,6 @@ class VectorCompressor:
             'fixed_header_bits': fixed_header_bits, 'pad_bits': pad_bits,
             'rle': {'k': k_opt, 'runs': len(run_lengths), 'payload_bits': rle_payload_bits, 'header_bits': rle_header_bits}
         }
-
-    # In vectoria/compressor.py
-
-    # In vectoria/compressor.py
 
     def _estimate_contextual_bits(self, tokens: List[int], K: int, num_vectors: int, remainder_bits: int):
         if not tokens: return {'total_bits': float('inf')}
@@ -212,9 +201,6 @@ class VectorCompressor:
         
         context_lengths = {ctx: _huffman_code_lengths(freqs) for ctx, freqs in merged_freqs.items()}
         
-        # --- THE FINAL FIX IS HERE ---
-        # A more realistic header cost: one 8-bit value for the number of tables,
-        # plus the size of each table. This removes the unfair per-table penalty.
         huff_header_bits = 8 + sum((8 + len(lengths) * 8) if lengths else 0 for lengths in context_lengths.values())
 
         token_bits = 0
@@ -250,19 +236,16 @@ class VectorCompressor:
 
 
     def _select_best_model_and_K(self, vectors: List[Tuple[str,...]], remainder: str):
-        if not vectors: # Handle empty input
+        if not vectors: 
             base_bits, fixed_header_bits = len(remainder), 5 + 8 + 8 + 32 + 8
             total_bits = base_bits + fixed_header_bits
             pad_bits = (8 - (total_bits % 8)) % 8
             return {'K': 0, 'codebook': [], 'total_bits': total_bits + pad_bits, 'model_type': 'zeroth_order_mtf_rle', 'lengths': {}, 'token_bits': 0, 'literal_bits': 0, 'codebook_bits': 0, 'huff_header_bits': 0, 'remainder_bits': len(remainder), 'fixed_header_bits': fixed_header_bits, 'pad_bits': pad_bits}
 
-        # --- FIX STARTS HERE ---
-        # First, establish a baseline cost for a K=0 "all literals" strategy.
-        # This involves no codebook, no Huffman tables, and no indices.
         num_vectors = len(vectors)
         remainder_bits = len(remainder)
         literal_bits_k0 = num_vectors * self.vector_size * 3
-        # Use the same fixed header cost for a fair comparison.
+        
         fixed_header_bits = 5 + 8 + 8 + 32 + 8
         total_k0_bits = literal_bits_k0 + remainder_bits + fixed_header_bits
         pad_bits_k0 = (8 - (total_k0_bits % 8)) % 8
@@ -273,7 +256,7 @@ class VectorCompressor:
             'codebook_bits': 0, 'huff_header_bits': 0, 'remainder_bits': remainder_bits,
             'fixed_header_bits': fixed_header_bits, 'pad_bits': pad_bits_k0
         }
-        # --- FIX ENDS HERE ---
+        
 
         vector_freqs = Counter(vectors)
         upper_k = min(self.max_codebook_size, len(vector_freqs))
@@ -285,20 +268,7 @@ class VectorCompressor:
             zeroth_model = self._estimate_zeroth_order_bits(tokens, K, num_vectors, remainder_bits)
             context_model = self._estimate_contextual_bits(tokens, K, num_vectors, remainder_bits)
 
-            # --- START TEMPORARY DEBUGGING ---
-            if K == 4: # This is the K used in our failing test
-                print("\n\n========================= DEBUGGER OUTPUT (K=4) =========================")
-                print(f"--- Zeroth Model (MTF+RLE) ---")
-                for key, val in zeroth_model.items():
-                    if '_bits' in str(key): print(f"  {key:<20}: {val}")
-                print(f"  {'TOTAL':<20}: {zeroth_model['total_bits']}")
-                
-                print(f"\n--- Contextual Model ---")
-                for key, val in context_model.items():
-                    if '_bits' in str(key): print(f"  {key:<20}: {val}")
-                print(f"  {'TOTAL':<20}: {context_model['total_bits']}")
-                print("========================================================================\n")
-            # --- END TEMPORARY DEBUGGING ---
+            
 
             best_for_k = min(zeroth_model, context_model, key=lambda x: x['total_bits'])
 
@@ -308,7 +278,7 @@ class VectorCompressor:
                 best_overall['codebook'] = codebook
         return best_overall
 
-    # In vectoria/compressor.py
+    
 
     def encode(self, bitstream: str) -> Dict[str, Any]:
         vectors, remainder = self._create_vectors(bitstream)
@@ -323,8 +293,7 @@ class VectorCompressor:
         if 'rle' in best_model:
             bit_accounting['rle'] = best_model['rle']
 
-        # --- FIX STARTS HERE ---
-        # Reworked logic to correctly handle K=0 (no codebook)
+        
         if self.codebook:
             v2i = {v: i for i, v in enumerate(self.codebook)}
             # First, determine if each vector is an index or an escape
@@ -337,7 +306,7 @@ class VectorCompressor:
         else:
             # If there's no codebook, all vectors must be literals.
             encoded_data = [('literal', vec) for vec in vectors]
-        # --- FIX ENDS HERE ---
+       
 
         return {'data': encoded_data, 'codebook': self.codebook, 'remainder': remainder,
                 'model': {'K': self.best_k, 'model_type': self.model_type,
