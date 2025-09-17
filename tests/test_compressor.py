@@ -1,4 +1,3 @@
-# tests/test_compressor.py
 
 import pytest
 from vectoria import VectorCompressor
