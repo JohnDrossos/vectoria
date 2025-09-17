@@ -1,8 +1,3 @@
-Excellent idea. That will make it even easier for people to get started. Adding a section about the convenience functions is a great way to improve the user experience.
-
-Here is the updated `README.md` with a new "Simple API" section. I've placed it right after the "Quick Start" as it flows naturally from that topic.
-
------
 
 # Vectoria 🗜️
 
