@@ -12,7 +12,6 @@ __version__ = "0.1.0"
 
 from .compressor import VectorCompressor
 
-# --- New Convenience Functions ---
 
 def compress(bitstream: str, **kwargs) -> dict:
     """
@@ -39,6 +38,6 @@ def decompress(compressed_form: dict) -> str:
     Returns:
         str: The original bitstream.
     """
-    # A new compressor instance is fine since all state is in the compressed_form
+    
     compressor = VectorCompressor()
     return compressor.decode(compressed_form)
