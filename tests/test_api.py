@@ -1,4 +1,3 @@
-# In tests/test_api.py
 
 import vectoria
 
