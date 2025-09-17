@@ -21,7 +21,6 @@ def test_empty_string():
     compressed = compressor.encode("")
     reconstructed = compressor.decode(compressed)
     assert "" == reconstructed
-    # Also check that the compressed size is minimal (only headers)
     assert compressed['model']['bit_accounting']['total_bits'] > 0
     assert not compressed['data'] # No data payload
 
@@ -30,7 +29,6 @@ def test_short_string_no_vectors():
     Tests a string that is too short to form even one complete vector.
     It should be handled entirely as a 'remainder'.
     """
-    # FIX: Use a string shorter than 3 bits so no triplets can be formed.
     short_stream = "11"
     compressor = VectorCompressor(vector_size=1)
     compressed = compressor.encode(short_stream)
@@ -70,7 +68,6 @@ def test_chooses_mtf_rle_model_for_repetitive_data():
     # but for highly compressible data, it should pick the main pipeline.
     assert compressed['model']['model_type'] == 'zeroth_order_mtf_rle'
 
-# In tests/test_compressor.py
 
 def test_model_selection_for_patterned_data():
     """
@@ -88,11 +85,7 @@ def test_model_selection_for_patterned_data():
     compressor = VectorCompressor(vector_size=2, max_codebook_size=4)
     compressed = compressor.encode(patterned_stream)
     
-    # FINAL FIX: The test now correctly asserts that the more efficient
-    # zeroth_order_mtf_rle model is chosen, validating the cost analysis.
     assert compressed['model']['model_type'] == 'zeroth_order_mtf_rle'
-
-    # We also remove the temporary debug prints from the main code now.
 
 def test_different_vector_size():
     """
